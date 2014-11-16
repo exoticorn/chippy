@@ -1,4 +1,5 @@
-require(['react-0.12.0.js', 'player', 'patterneditor', 'async'], function(React, Player, PatternEditorClass, async) {
+require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'],
+    function(React, Player, PatternEditorClass, PlayListEditor, async) {
   'use strict';
   
   var PatternEditor = React.createFactory(PatternEditorClass);
@@ -19,11 +20,13 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'async'], function(React,
     return pattern;
   }
   
-  var dummyPattern = createPattern();
-  
+  var song = {
+    patterns: [createPattern()],
+    playlist: [[0, 0, 0], [0, 0, 0]]
+  };
+
   var player = new Player(audioContext);
-  player.playPattern(dummyPattern);
-  
+
   function selectFile(mode) {
     return new Promise(function(resolve, reject) {
       chrome.fileSystem.chooseEntry({
@@ -59,22 +62,30 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'async'], function(React,
       });
     });
   }
+  
+  var noteKeys = [90, 83, 88, 68, 67, 86, 71, 66, 72, 78, 74, 77, 81, 50, 87, 51, 69, 82, 53, 84, 54, 89, 55,
+    85, 73, 57, 79, 48, 80];
+  var keyNote = [];
+  noteKeys.forEach(function(key, note) { keyNote[key] = note; });
 
   var App = React.createClass({
     getInitialState: function() {
-      return {};
+      return { lastKey: '' };
+    },
+    componentDidMount: function() {
+      document.body.onkeydown = this.keyDown;
     },
     load: async.proc(function*() {
+      this.stop();
       var entry = yield selectFile('load');
       if(entry) {
-        var song = yield loadJson(entry);
-        dummyPattern = song.patterns[0];
+        song = yield loadJson(entry);
         this.setState({ entry: entry });
       }
     }),
     save: function() {
       if(this.state.entry) {
-        writeJson(this.state.entry, {patterns: [dummyPattern]});
+        writeJson(this.state.entry, song);
       } else {
         this.saveAs();
       }
@@ -82,18 +93,74 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'async'], function(React,
     saveAs: async.proc(function*() {
       var entry = yield selectFile('save');
       if(entry) {
-        writeJson(entry, {patterns: [dummyPattern]});
+        writeJson(entry, song);
         this.setState({ entry: entry });
       }
     }),
+    keyToNote: function(event) {
+      if(event.ctrlKey) {
+        return;
+      }
+      var note = keyNote[event.keyCode];
+      if(note !== undefined) {
+        event.preventDefault();
+        event.stopPropagation();
+        return { note: note + 3};
+      }
+    },
+    keyDown: function(e) {
+      this.setState({ lastKey: e.keyCode });
+      if(e.ctrlKey) {
+        switch(e.keyCode) {
+          case 79:
+            this.load();
+            e.preventDefault();
+            break;
+          case 83:
+            if(e.shiftKey) {
+              this.saveAs();
+            } else {
+              this.save();
+            }
+            e.preventDefault();
+            break;
+          case 80:
+            if(this.state.playing === 'pattern') {
+              this.stop();
+            } else {
+              this.playPattern();
+            }
+            e.preventDefault();
+            break;
+        }
+      }
+    },
+    stop: function() {
+      player.stop();
+      this.setState({ playing: false });
+    },
+    playPattern: function() {
+      player.playPattern(song.patterns[0]);
+      this.setState({ playing: 'pattern' });
+    },
+    playSong: function() {
+      player.playSong(song);
+      this.setState({ playing: 'song' });
+    },
     render: function() {
       return D.div({ className: 'main-box' },
         D.div({className: 'file-ops'},
           D.div(null, D.button({ type: 'button', onClick: this.load }, 'Load...')),
           D.div(null, D.button({ type: 'button', onClick: this.save }, 'Save')),
-          D.div(null, D.button({ type: 'button', onClick: this.saveAs }, 'Save As...'))
+          D.div(null, D.button({ type: 'button', onClick: this.saveAs }, 'Save As...')),
+          D.div(null, D.button({ type: 'button', onClick: this.stop }, 'Stop')),
+          D.div(null, D.button({ type: 'button', onClick: this.playPattern }, 'Play Pattern')),
+          D.div(null, D.button({ type: 'button', onClick: this.playSone }, 'Play Song')),
+          D.div(null, this.state.lastKey )
         ),
-        PatternEditor({ channels: dummyPattern }));
+        PatternEditor({ channels: song.patterns[0], keyToNote: this.keyToNote, player: player }),
+        PlayListEditor({ playlist: song.playlist })
+      );
     }
   });
   

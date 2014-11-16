@@ -9,25 +9,33 @@ define(['instrument'], function(Instruments) {
     var playing = false;
     var patternPos = 0;
     
+    var self = this;
+    
     function update() {
       if(!playing) return;
-      while(time < ctx.currentTime + 0.5) {
+      while(time < ctx.currentTime + 0.25) {
         for(c = 0; c < pattern.length; ++c) {
-          var e = pattern[c][patternPos];
-          if(e.note !== undefined) {
-            if(channels[c] !== undefined) {
-              channels[c].stop(time);
-            }
-            channels[c] = new insts.Pling(time, e.note);
-            channels[c].out.connect(ctx.destination);
-          }
+          self.handleRow(c, pattern[c][patternPos], time);
         }
         time += 15 / 120;
         patternPos = (patternPos + 1) % 64;
       }
     }
     
-    setInterval(update, 400);
+    setInterval(update, 200);
+    
+    this.handleRow = function(c, e, time) {
+      if(time === undefined) {
+        time = ctx.currentTime;
+      }
+      if(e.note !== undefined) {
+        if(channels[c] !== undefined) {
+          channels[c].stop(time);
+        }
+        channels[c] = new insts.Pling(time, e.note);
+        channels[c].out.connect(ctx.destination);
+      }
+    };
     
     this.playPattern = function(p) {
       this.stop();
