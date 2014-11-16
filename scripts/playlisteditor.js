@@ -20,6 +20,28 @@ define(['react-0.12.0.js'], function(React) {
     },
     keyDown: function(e) {
       var rows = this.props.playlist.length;
+      var newY;
+      if(e.ctrlKey) {
+        switch(e.keyCode) {
+          case 73:
+            this.props.playlist.splice(this.state.y + (e.shiftKey ? 1 : 0), 0, [0, 0, 0]);
+            e.preventDefault();
+            newY = this.state.y + (e.shiftKey ? 1 : 0);
+            this.setState({ y: newY });
+            this.props.updatePattern(newY);
+            break;
+          case 68:
+            if(rows > 1) {
+              this.props.playlist.splice(this.state.y, 1);
+              newY = Math.min(this.state.y, rows - 2);
+              this.setState({ y: newY });
+              this.props.updatePattern(newY);
+            }
+            e.preventDefault();
+            break;
+        }
+        return;
+      }
       switch(e.keyCode) {
       case 37:
         this.setState({ x: (this.state.x + NUM_CHANNELS - 1) % NUM_CHANNELS });
@@ -30,11 +52,15 @@ define(['react-0.12.0.js'], function(React) {
         e.preventDefault();
         break;
       case 38:
-        this.setState({ y: (this.state.y + rows - 1) % rows });
+        newY = (this.state.y + rows - 1) % rows;
+        this.setState({ y: newY });
+        this.props.updatePattern(newY);
         e.preventDefault();
         break;
       case 40:
-        this.setState({ y: (this.state.y + 1) % rows });
+        newY = (this.state.y + 1) % rows;
+        this.setState({ y: newY });
+        this.props.updatePattern(newY);
         e.preventDefault();
         break;
       default:
@@ -50,8 +76,8 @@ define(['react-0.12.0.js'], function(React) {
         }
         this.props.playlist[this.state.y][this.state.x] = pattern;
         var newX = (this.state.x + 1) % 3;
-        var newY = newX > 0 ? this.state.y : (this.state.y + 1) % this.props.playlist.length;
-        this.setState({ x: newX, y: newY });
+        this.setState({ x: newX });
+        this.props.updatePattern(this.state.y);
         break;
       }
     },

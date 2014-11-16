@@ -70,7 +70,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
 
   var App = React.createClass({
     getInitialState: function() {
-      return { lastKey: '' };
+      return { lastKey: '', pattern: song.patterns[0], patternIdx: [0, 0, 0] };
     },
     componentDidMount: function() {
       document.body.onkeydown = this.keyDown;
@@ -80,6 +80,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
       var entry = yield selectFile('load');
       if(entry) {
         song = yield loadJson(entry);
+        this.state.patternIdx = [-1, 0, 0];
+        this.updatePattern(0);
         this.setState({ entry: entry });
       }
     }),
@@ -140,12 +142,30 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
       this.setState({ playing: false });
     },
     playPattern: function() {
-      player.playPattern(song.patterns[0]);
+      player.playPattern(this.state.pattern);
       this.setState({ playing: 'pattern' });
     },
     playSong: function() {
       player.playSong(song);
       this.setState({ playing: 'song' });
+    },
+    updatePattern: function(row) {
+      var pat = song.playlist[row];
+      var old = this.state.patternIdx;
+      if(pat[0] !== old[0] || pat[1] !== old[1] || pat[2] !== old[2]) {
+        var max = Math.max(pat[0], Math.max(pat[1], pat[2]));
+        var patterns = song.patterns;
+        while(patterns.length < max + 1) {
+          patterns.push(createPattern());
+        }
+        this.setState({
+          patternIdx: pat.slice(),
+          pattern: pat.map(function(i, c) { return patterns[i][c]; })
+        });
+        if(this.state.playing === 'pattern') {
+          this.stop();
+        }
+      }
     },
     render: function() {
       return D.div({ className: 'main-box' },
@@ -158,8 +178,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
           D.div(null, D.button({ type: 'button', onClick: this.playSone }, 'Play Song')),
           D.div(null, this.state.lastKey )
         ),
-        PatternEditor({ channels: song.patterns[0], keyToNote: this.keyToNote, player: player }),
-        PlayListEditor({ playlist: song.playlist })
+        PatternEditor({ channels: this.state.pattern, keyToNote: this.keyToNote, player: player }),
+        PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern })
       );
     }
   });
