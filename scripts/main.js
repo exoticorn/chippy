@@ -26,16 +26,37 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
     playlist: [[0, 0, 0]],
     insts: [
       {
+        osci: 'rect',duty: 0
+      },
+      {
         osci: 'square',
-        arpLoop : true,
-        arp: [12, 0],
-        env: [1, 15, 60, 8]
+        arp: {
+          list: [24, 19, 12, 19, 12, 7, 12, 7, 0, 7, 0]
+        },
+        vol: {
+          env: [1, 15, 60, 8]
+        }
       }
     ]
   };
 
   var player = new Player(audioContext);
   player.setSong(song);
+  
+  var scratchInst;
+  
+  function updateScratch() {
+    if(scratchInst) {
+      scratchInst.updateUntil(audioContext.currentTime + 0.3);
+    }
+  }
+  setInterval(updateScratch, 100);
+  function stopScratch() {
+    if(scratchInst) {
+      scratchInst.stop(audioContext.currentTime);
+      scratchInst = undefined;
+    }
+  }
 
   function selectFile(mode) {
     return new Promise(function(resolve, reject) {
@@ -80,7 +101,13 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
 
   var App = React.createClass({
     getInitialState: function() {
-      return { lastKey: '', pattern: song.patterns[0], patternIdx: [0, 0, 0], currentInstrument: 0 };
+      return {
+        lastKey: '',
+        pattern: song.patterns[0],
+        patternIdx: [0, 0, 0],
+        currentInstrument: 0,
+        noteOffset: 3
+      };
     },
     componentDidMount: function() {
       document.body.onkeydown = this.keyDown;
@@ -118,7 +145,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
       if(note !== undefined) {
         event.preventDefault();
         event.stopPropagation();
-        return { note: note + 3};
+        return { note: note + this.state.noteOffset};
       }
     },
     keyDown: function(e) {
@@ -145,12 +172,31 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
             }
             e.preventDefault();
             break;
+          case 188:
+          case 190:
+            this.setState({ noteOffset: this.state.noteOffset + (e.keyCode - 189) * 12 });
+            e.preventDefault();
+            break;
+        }
+      }
+      if(e.altKey) {
+        var note = keyNote[e.keyCode];
+        if(note !== undefined) {
+          event.preventDefault();
+          event.stopPropagation();
+          stopScratch();
+          scratchInst = new player.instruments.Instrument(song.insts[this.state.currentInstrument],
+            audioContext.currentTime, note + this.state.noteOffset);
+          scratchInst.updateUntil(audioContext.currentTime + 0.2);
+        } else if(e.keyCode === 32) {
+          stopScratch();
         }
       }
     },
     stop: function() {
       player.stop();
       this.setState({ playing: false });
+      stopScratch();
     },
     playPattern: function() {
       player.playPattern(this.state.pattern);
@@ -190,7 +236,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
           D.div(null, D.button({ type: 'button', onClick: this.stop }, 'Stop')),
           D.div(null, D.button({ type: 'button', onClick: this.playPattern }, 'Play Pattern')),
           D.div(null, D.button({ type: 'button', onClick: this.playSone }, 'Play Song')),
-          D.div(null, this.state.lastKey )
+          D.div(null, this.state.lastKey ),
+          D.div(null, 'Oct: ' + ((this.state.noteOffset - 3) / 12 + 3))
         ),
         PatternEditor({ channels: this.state.pattern, keyToNote: this.keyToNote, player: player }),
         PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern }),

@@ -4,13 +4,15 @@ define(function() {
   var Instruments = function(ctx) {
     var oneBuffer = ctx.createBuffer(1, 128, 22050);
     var oneData = oneBuffer.getChannelData(0);
-    for(var i = 0; i < 128; ++i) {
+    var i;
+    for(i = 0; i < 128; ++i) {
       oneData[i] = 1;
     }
-    var oneSrc = ctx.createBufferSource();
-    oneSrc.buffer = oneBuffer;
-    oneSrc.loop = true;
-    oneSrc.start();
+    var rectCurve = new Float32Array(256);
+    for(i = 0; i < 256; ++i) {
+      rectCurve[i] = i >= 255 ? 1 : -1;
+    }
+    var triCurve = new Float32Array([0, -1, 0, 1, 0]);
     
     this.Instrument = function(data, time, note) {
       this.data = data;
@@ -18,32 +20,67 @@ define(function() {
       this.frame = 0;
       this.note = note;
       this.osci = ctx.createOscillator();
-      this.osci.type = data.osci;
+      var osciOut;
+      switch(data.osci) {
+        case 'rect':
+        case 'tri':
+          this.osci.type = 'sawtooth';
+          this.dutyGain = ctx.createGain();
+          osciOut = ctx.createWaveShaper();
+          osciOut.oversample = '4x';
+          osciOut.curve = data.osci === 'rect' ? rectCurve : triCurve;
+          this.osci.connect(this.dutyGain);
+          this.dutyGain.connect(osciOut);
+          break;
+        default:
+          this.osci.type = data.osci;
+          osciOut = this.osci;
+          break;
+      }
       this.gain = ctx.createGain();
       this.step();
-      this.osci.connect(this.gain);
+      osciOut.connect(this.gain);
       this.gain.connect(ctx.destination);
       this.osci.start(time);
     };
     this.Instrument.prototype = {
       step: function() {
+        function evalProg(p, one) {
+          if(typeof p !== 'object') {
+            return p || one;
+          }
+          var list = one, env = one;
+          if(p.list) {
+            if(p.loop) {
+              list = p.list[frame % p.list.length];
+            } else {
+              list = p.list[Math.min(frame, p.list.length - 1)];
+            }
+          }
+          if(p.env) {
+            var left = 0;
+            var t = frame + 0.5;
+            var i = 0;
+            env = p.env[p.env.length - 1];
+            while(i < p.env.length - 1) {
+              if(t < p.env[i]) {
+                env = left + (p.env[i + 1] - left) * t / p.env[i];
+                break;
+              }
+              t -= p.env[i];
+              left = p.env[i+1];
+              i += 2;
+            }
+          }
+          return one ? list * env / one : list + env;
+        }
         var frame = this.frame;
-        var arp;
-        if(this.data.arpLoop) {
-          arp = this.data.arp[frame % this.data.arp.length];
-        } else {
-          arp = this.data.arp[Math.min(frame, this.data.arp.length - 1)];
+        this.osci.detune.setValueAtTime((this.note + evalProg(this.data.arp, 0)) * 100, this.time);
+        this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15, this.time);
+        if(this.dutyGain) {
+          var duty = evalProg(this.data.duty, 0);
+          this.dutyGain.gain.setValueAtTime(1.0 / (duty + 0.001), this.time);
         }
-        this.osci.detune.setValueAtTime((this.note + arp) * 100, this.time);
-        
-        var env = this.data.env;
-        var vol = env[2];
-        if(frame < env[0]) {
-          vol = 15 * (frame + 0.5) / env[0];
-        } else if(frame < env[0] + env[1]) {
-          vol = 15 + (env[2] - 15) * (frame - env[0] + 0.5) / env[1];
-        }
-        this.gain.gain.setValueAtTime(vol / 15, this.time);
         this.frame++;
         this.time += 1 / 60;
       },
