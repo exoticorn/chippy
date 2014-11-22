@@ -1,8 +1,9 @@
-require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'],
-    function(React, Player, PatternEditorClass, PlayListEditor, async) {
+require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instrumenteditor', 'async'],
+    function(React, Player, PatternEditorClass, PlayListEditor, InstrumentEditorClass, async) {
   'use strict';
   
   var PatternEditor = React.createFactory(PatternEditorClass);
+  var InstrumentEditor = React.createFactory(InstrumentEditorClass);
   
   var D = React.DOM;
   
@@ -22,10 +23,19 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
   
   var song = {
     patterns: [createPattern()],
-    playlist: [[0, 0, 0], [0, 0, 0]]
+    playlist: [[0, 0, 0]],
+    insts: [
+      {
+        osci: 'square',
+        arpLoop : true,
+        arp: [12, 0],
+        env: [1, 15, 60, 8]
+      }
+    ]
   };
 
   var player = new Player(audioContext);
+  player.setSong(song);
 
   function selectFile(mode) {
     return new Promise(function(resolve, reject) {
@@ -70,7 +80,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
 
   var App = React.createClass({
     getInitialState: function() {
-      return { lastKey: '', pattern: song.patterns[0], patternIdx: [0, 0, 0] };
+      return { lastKey: '', pattern: song.patterns[0], patternIdx: [0, 0, 0], currentInstrument: 0 };
     },
     componentDidMount: function() {
       document.body.onkeydown = this.keyDown;
@@ -80,6 +90,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
       var entry = yield selectFile('load');
       if(entry) {
         song = yield loadJson(entry);
+        player.setSong(song);
         this.state.patternIdx = [-1, 0, 0];
         this.updatePattern(0);
         this.setState({ entry: entry });
@@ -167,6 +178,9 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
         }
       }
     },
+    instChange: function(inst) {
+      song.insts[this.state.currentInstrument] = inst;
+    },
     render: function() {
       return D.div({ className: 'main-box' },
         D.div({className: 'file-ops'},
@@ -179,7 +193,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'async'
           D.div(null, this.state.lastKey )
         ),
         PatternEditor({ channels: this.state.pattern, keyToNote: this.keyToNote, player: player }),
-        PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern })
+        PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern }),
+        InstrumentEditor({ song: song, currentInstrument: this.state.currentInstrument, onChange: this.instChange })
       );
     }
   });

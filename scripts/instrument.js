@@ -12,53 +12,50 @@ define(function() {
     oneSrc.loop = true;
     oneSrc.start();
     
-    var Instrument = function() {};
-    Instrument.prototype = {
-      setupInstrument: function(note) {
-        this.noteIn = ctx.createGain();
-        oneSrc.connect(this.noteIn);
-        this.noteIn.gain.value = note * 100;
-        this.note = note;
-        
-        this.detune = this.noteIn;
-      },
-      slide: function(time, duration, note) {
-        if(duration <= 0) {
-          this.noteIn.gain.setValueAtTime(note * 100, time);
+    this.Instrument = function(data, time, note) {
+      this.data = data;
+      this.time = time;
+      this.frame = 0;
+      this.note = note;
+      this.osci = ctx.createOscillator();
+      this.osci.type = data.osci;
+      this.gain = ctx.createGain();
+      this.step();
+      this.osci.connect(this.gain);
+      this.gain.connect(ctx.destination);
+      this.osci.start(time);
+    };
+    this.Instrument.prototype = {
+      step: function() {
+        var frame = this.frame;
+        var arp;
+        if(this.data.arpLoop) {
+          arp = this.data.arp[frame % this.data.arp.length];
         } else {
-          this.noteIn.gain.setValueAtTime(this.note * 100, time);
-          this.noteIn.gain.linearRampToValueAtTime(note * 100, time + duration);
+          arp = this.data.arp[Math.min(frame, this.data.arp.length - 1)];
         }
-        this.note = note;
+        this.osci.detune.setValueAtTime((this.note + arp) * 100, this.time);
+        
+        var env = this.data.env;
+        var vol = env[2];
+        if(frame < env[0]) {
+          vol = 15 * (frame + 0.5) / env[0];
+        } else if(frame < env[0] + env[1]) {
+          vol = 15 + (env[2] - 15) * (frame - env[0] + 0.5) / env[1];
+        }
+        this.gain.gain.setValueAtTime(vol / 15, this.time);
+        this.frame++;
+        this.time += 1 / 60;
+      },
+      updateUntil: function(time) {
+        while(this.time < time) {
+          this.step();
+        }
+      },
+      stop: function(time) {
+        this.osci.stop(time);
       }
     };
-    
-    var YM = function() {};
-    YM.prototype = new Instrument();
-    YM.prototype.setupYM = function(time, note) {
-      this.setupInstrument(note);
-      this.osci = ctx.createOscillator();
-      this.osci.type = 'square';
-      this.detune.connect(this.osci.detune);
-      this.osci.start(time);
-      
-      this.gain = ctx.createGain();
-      this.osci.connect(this.gain);
-      
-      this.out = this.gain;
-    };
-    YM.prototype.stop = function(time) {
-      this.osci.stop(time);
-    };
-    
-    this.Pling = function(time, note) {
-      this.setupYM(time, note);
-      this.osci.detune.value = -12*100;
-      this.osci.detune.setValueAtTime(0, time + 0.1);
-      this.gain.gain.setValueAtTime(1, 0);
-      this.gain.gain.linearRampToValueAtTime(0, time + 1);
-    };
-    this.Pling.prototype = new YM();
   };
 
   return Instruments;
