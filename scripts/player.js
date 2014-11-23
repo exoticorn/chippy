@@ -22,7 +22,7 @@ define(['instrument'], function(Instruments) {
         }
         return;
       }
-      while(time < ctx.currentTime + 0.8) {
+      while(time < ctx.currentTime + 0.4) {
         for(c = 0; c < pattern.length; ++c) {
           self.handleRow(c, pattern[c][patternPos], time);
         }
@@ -44,7 +44,7 @@ define(['instrument'], function(Instruments) {
         if(channels[c] !== undefined) {
           channels[c].stop(time);
         }
-        channels[c] = new this.instruments.Instrument(song.insts[0], time, e.note);
+        channels[c] = new this.instruments.Instrument(song.insts[e.inst|0], time, e.note);
       }
     };
     

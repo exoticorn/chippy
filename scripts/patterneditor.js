@@ -2,7 +2,7 @@ define(['react-0.12.0.js'], function(React) {
   var D = React.DOM;
   
   var NUM_CHANNELS = 3;
-  var COLS_PER_CHANNEL = 1;
+  var COLS_PER_CHANNEL = 2;
   
   var NUM_COLS = NUM_CHANNELS * COLS_PER_CHANNEL;
   
@@ -64,7 +64,9 @@ define(['react-0.12.0.js'], function(React) {
       }
       var c = this.state.x / COLS_PER_CHANNEL;
       this.props.player.handleRow(c, noteOn);
-      this.props.channels[this.state.x / COLS_PER_CHANNEL][this.state.y].note = noteOn.note;
+      var e = this.props.channels[this.state.x / COLS_PER_CHANNEL][this.state.y];
+      e.note = noteOn.note;
+      e.inst = this.props.currentInstrument;
       this.setState({ y: (this.state.y + 1) % 64 });
     },
     render: function() {
@@ -72,9 +74,12 @@ define(['react-0.12.0.js'], function(React) {
       for(var r = 0; r < this.props.channels[0].length; ++r) {
         var row = [D.td(null, r + 1)];
         for(var c = 0; c < this.props.channels.length; ++c) {
+          var selectedCol = this.state.x - c * COLS_PER_CHANNEL;
           var e = this.props.channels[c][r];
-          var note = e.note === undefined ? '---' : NOTES[(e.note - 3) % 12] + Math.floor((e.note - 3) / 12);
-          row.push(D.td({ className: r === this.state.y && c * COLS_PER_CHANNEL === this.state.x ? 'selected' : ''}, note));
+          var note = e.note === undefined ? '---' : NOTES[(e.note - 3 + 12*3) % 12] + Math.floor((e.note - 3 + 12*3) / 12);
+          row.push(D.td({ className: r === this.state.y && selectedCol === 0 ? 'selected' : ''}, note));
+          var instChar = e.inst === undefined ? '-' : (e.inst < 10 ? '' + e.inst : String.fromCharCode(55 + e.inst));
+          row.push(D.td({ className: r === this.state.y && selectedCol === 1 ? 'selected' : ''}, instChar));
         }
         var selected = r === this.state.y;
         rows.push(

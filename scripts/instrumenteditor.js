@@ -85,6 +85,7 @@ define(['react-0.12.0.js'], function(React) {
     },
     render: function() {
       return D.div(null,
+        D.h2(null, 'Instrument ' + this.props.currentInstrument),
         D.textarea({ value: this.state.text, onChange: this.textChanged, onKeyDown: this.keyDown, cols: 40, rows: 20 }),
         D.div(null, this.state.parseResult)
       );

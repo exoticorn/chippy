@@ -27,7 +27,7 @@ define(function() {
           this.dutyGain = ctx.createGain();
           this.dutyGain.gain.value = 1;
           osciOut = ctx.createWaveShaper();
-//          osciOut.oversample = '4x';
+          osciOut.oversample = '4x';
           osciOut.curve = rectCurve;
           this.osci.connect(this.dutyGain);
           this.dutyGain.connect(osciOut);
@@ -46,11 +46,13 @@ define(function() {
     };
     this.Instrument.prototype = {
       step: function() {
+        var frame = this.frame;
+        var lfo = 0;
         function evalProg(p, one) {
           if(typeof p !== 'object') {
             return p || one;
           }
-          var list = one, env = one;
+          var list = one, env = one, osc = one;
           if(p.list) {
             if(p.loop) {
               list = p.list[frame % p.list.length];
@@ -73,11 +75,16 @@ define(function() {
               i += 2;
             }
           }
-          return one ? list * env / one : list + env;
+          if(p.lfo) {
+            osc = evalProg(p.lfo, 1) * lfo;
+          }
+          return one ? list * env / one * osc / one : list + env + osc;
         }
-        var frame = this.frame;
-        this.osci.detune.setValueAtTime((this.note + evalProg(this.data.arp, 0)) * 100, this.time);
-        this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15, this.time);
+        if(this.data.lfo) {
+          lfo = Math.sin(this.time * evalProg(this.data.lfo, 0) * 2 * Math.PI);
+        }
+        this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0)) * 100, this.time);
+        this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15 / 3, this.time);
         if(this.dutyGain) {
           var duty = evalProg(this.data.duty, 0);
           this.dutyGain.gain.setValueAtTime(1.0 / (duty + 0.001), this.time);

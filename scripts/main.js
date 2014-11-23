@@ -24,20 +24,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
   var song = {
     patterns: [createPattern()],
     playlist: [[0, 0, 0]],
-    insts: [
-      {
-        osci: 'rect',duty: 0
-      },
-      {
-        osci: 'square',
-        arp: {
-          list: [24, 19, 12, 19, 12, 7, 12, 7, 0, 7, 0]
-        },
-        vol: {
-          env: [1, 15, 60, 8]
-        }
-      }
-    ]
+    insts: []
   };
 
   var player = new Player(audioContext);
@@ -73,8 +60,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
   
   function writeJson(entry, data) {
     entry.createWriter(function(writer) {
-      writer.truncate(0);
       writer.write(new Blob([JSON.stringify(data)]));
+      writer.truncate(writer.position);
     });
   }
   
@@ -95,6 +82,13 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
     });
   }
   
+  function prepareSong() {
+    while(song.insts.length < 16) {
+      song.insts.push({osci: 'sawtooth', vol: {env: [0, 15, 30, 0]}});
+    }
+  }
+  prepareSong();
+  
   var noteKeys = [90, 83, 88, 68, 67, 86, 71, 66, 72, 78, 74, 77, 81, 50, 87, 51, 69, 82, 53, 84, 54, 89, 55,
     85, 73, 57, 79, 48, 80];
   var keyNote = [];
@@ -107,7 +101,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
         pattern: song.patterns[0],
         patternIdx: [0, 0, 0],
         currentInstrument: 0,
-        noteOffset: 3
+        noteOffset: 3-12
       };
     },
     componentDidMount: function() {
@@ -118,6 +112,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
       var entry = yield selectFile('load');
       if(entry) {
         song = yield loadJson(entry);
+        prepareSong();
         player.setSong(song);
         this.state.patternIdx = [-1, 0, 0];
         this.updatePattern(0);
@@ -176,6 +171,11 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
           case 188:
           case 190:
             this.setState({ noteOffset: this.state.noteOffset + (e.keyCode - 189) * 12 });
+            e.preventDefault();
+            break;
+          case 219:
+          case 221:
+            this.setState({ currentInstrument: this.state.currentInstrument + (e.keyCode - 220)});
             e.preventDefault();
             break;
         }
@@ -240,7 +240,12 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
           D.div(null, this.state.lastKey ),
           D.div(null, 'Oct: ' + ((this.state.noteOffset - 3) / 12 + 3))
         ),
-        PatternEditor({ channels: this.state.pattern, keyToNote: this.keyToNote, player: player }),
+        PatternEditor({
+          channels: this.state.pattern,
+          keyToNote: this.keyToNote,
+          player: player,
+          currentInstrument: this.state.currentInstrument
+        }),
         PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern }),
         InstrumentEditor({ song: song, currentInstrument: this.state.currentInstrument, onChange: this.instChange })
       );
