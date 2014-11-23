@@ -22,7 +22,7 @@ define(['instrument'], function(Instruments) {
         }
         return;
       }
-      while(time < ctx.currentTime + 0.4) {
+      while(time < ctx.currentTime + 0.8) {
         for(c = 0; c < pattern.length; ++c) {
           self.handleRow(c, pattern[c][patternPos], time);
         }

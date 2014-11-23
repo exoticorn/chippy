@@ -10,7 +10,7 @@ define(function() {
     }
     var rectCurve = new Float32Array(256);
     for(i = 0; i < 256; ++i) {
-      rectCurve[i] = i >= 255 ? 1 : -1;
+      rectCurve[i] = (i >= 255) ? 1 : -1;
     }
     var triCurve = new Float32Array([0, -1, 0, 1, 0]);
     
@@ -23,12 +23,12 @@ define(function() {
       var osciOut;
       switch(data.osci) {
         case 'rect':
-        case 'tri':
           this.osci.type = 'sawtooth';
           this.dutyGain = ctx.createGain();
+          this.dutyGain.gain.value = 1;
           osciOut = ctx.createWaveShaper();
-          osciOut.oversample = '4x';
-          osciOut.curve = data.osci === 'rect' ? rectCurve : triCurve;
+//          osciOut.oversample = '4x';
+          osciOut.curve = rectCurve;
           this.osci.connect(this.dutyGain);
           this.dutyGain.connect(osciOut);
           break;
@@ -38,6 +38,7 @@ define(function() {
           break;
       }
       this.gain = ctx.createGain();
+      this.gain.gain.value = 0;
       this.step();
       osciOut.connect(this.gain);
       this.gain.connect(ctx.destination);

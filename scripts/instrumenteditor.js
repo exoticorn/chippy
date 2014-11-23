@@ -3,9 +3,18 @@ define(['react-0.12.0.js'], function(React) {
   
   return React.createClass({
     getInitialState: function() {
-      return { text: this.formatInstrument(), parseResult: 'ok' };
+      return {
+        text: this.formatInstrument(this.props.song.insts[this.props.currentInstrument]),
+        parseResult: 'ok' };
     },
-    formatInstrument: function() {
+    componentWillReceiveProps: function(props) {
+      if(props.song !== this.props.song || props.currentInstrument !== this.props.currentInstrument) {
+        this.setState({
+          text: this.formatInstrument(props.song.insts[props.currentInstrument])
+        });
+      }
+    },
+    formatInstrument: function(inst) {
       function formatJson(val, indent) {
         var result;
         var nextIndent;
@@ -43,7 +52,7 @@ define(['react-0.12.0.js'], function(React) {
         }
         return JSON.stringify(val);
       }
-      return formatJson(this.props.song.insts[this.props.currentInstrument], '');
+      return formatJson(inst, '');
     },
     textChanged: function(e) {
       var text = e.target.value;
@@ -59,9 +68,24 @@ define(['react-0.12.0.js'], function(React) {
         this.props.onChange(inst);
       }
     },
+    keyDown: function(e) {
+      switch(e.keyCode) {
+        case 70:
+          if(e.ctrlKey && e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            if(this.state.parseResult === 'ok') {
+              this.setState({
+                text: this.formatInstrument(JSON.parse(this.state.text))
+              });
+            }
+          }
+          break;
+      }
+    },
     render: function() {
       return D.div(null,
-        D.textarea({ value: this.state.text, onChange: this.textChanged, cols: 40, rows: 20 }),
+        D.textarea({ value: this.state.text, onChange: this.textChanged, onKeyDown: this.keyDown, cols: 40, rows: 20 }),
         D.div(null, this.state.parseResult)
       );
     }
