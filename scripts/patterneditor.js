@@ -2,11 +2,27 @@ define(['react-0.12.0.js'], function(React) {
   var D = React.DOM;
   
   var NUM_CHANNELS = 3;
-  var COLS_PER_CHANNEL = 2;
+  var COLS_PER_CHANNEL = 5;
   
   var NUM_COLS = NUM_CHANNELS * COLS_PER_CHANNEL;
   
   var NOTES = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
+  
+  function copyNote(src, dst) {
+    dst = dst || {};
+    dst.note = src.note;
+    dst.inst = src.inst;
+    return dst;
+  }
+  
+  function keyNibble(e) {
+    if(e.keyCode >= 48 && e.keyCode < 58) {
+      return e.keyCode - 48;
+    }
+    if(e.keyCode >= 65 && e.keyCOde < 65 + 26) {
+      return e.keyCode - 55;
+    }
+  }
   
   return React.createClass({
     getInitialState: function() {
@@ -42,18 +58,88 @@ define(['react-0.12.0.js'], function(React) {
         e.preventDefault();
         break;
       case 33:
-        this.setState({ y: (this.state.y + 48) % 64 });
+        this.setState({ y: ((this.state.y + 63) & ~15) % 64 });
         e.preventDefault();
         break;
       case 34:
-        this.setState({ y: (this.state.y + 16) % 64 });
+        this.setState({ y: ((this.state.y + 16) & ~15) % 64 });
         e.preventDefault();
         break;
       case 8: this.note({note: undefined}); e.preventDefault(); break;
       default:
-        var noteOn = this.props.keyToNote(e);
-        if(noteOn) {
-          this.note(noteOn);
+        var x, y, copyData, chan;
+        if(e.ctrlKey) {
+          switch(e.keyCode) {
+            case 77:
+              this.setState({ mark: {x: Math.floor(this.state.x / COLS_PER_CHANNEL), y: this.state.y} });
+              e.preventDefault();
+              break;
+            case 67:
+              if(this.state.mark) {
+                copyData = [];
+                x = Math.floor(this.state.x / COLS_PER_CHANNEL);
+                var x1 = Math.min(this.state.mark.x, x), x2 = Math.max(this.state.mark.x, x);
+                var y1 = Math.min(this.state.mark.y, this.state.y), y2 = Math.max(this.state.mark.y, this.state.y);
+                for(x = x1; x <= x2; ++x) {
+                  chan = [];
+                  for(y = y1; y <= y2; ++y) {
+                    chan.push(copyNote(this.props.channels[x][y]));
+                  }
+                  copyData.push(chan);
+                }
+                this.setState({ copyData: copyData, mark: undefined });
+              }
+              e.preventDefault();
+              break;
+            case 86:
+              copyData = this.state.copyData;
+              if(copyData !== undefined) {
+                for(x = 0; x < copyData.length; ++x) {
+                  chan = this.props.channels[(Math.floor(this.state.x / COLS_PER_CHANNEL) + x) % this.props.channels.length];
+                  for(y = 0; y < copyData[x].length; ++y) {
+                    copyNote(copyData[x][y], chan[(this.state.y + y) % chan.length]);
+                  }
+                }
+                this.forceUpdate();
+              }
+              e.preventDefault();
+              break;
+          }
+        } else {
+          var c = this.state.x % COLS_PER_CHANNEL;
+          x = Math.floor(this.state.x / COLS_PER_CHANNEL);
+          switch(c) {
+            case 0:
+              var noteOn = this.props.keyToNote(e);
+              if(noteOn) {
+                this.note(noteOn);
+              }
+              break;
+            case 1:
+              var inst = keyNibble(e);
+              if(inst !== undefined && inst < 16) {
+                this.props.channels[x][this.state.y].inst = inst;
+                this.setState({ y: (this.state.y + 1) % 64 });
+              }
+              break;
+            case 2:
+              if(e.keyCode >= 65 && e.keyCode < 65 + 26) {
+                this.props.channels[x][this.state.y].effect = String.fromCharCode(e.keyCode);
+                this.setState({ y: (this.state.y + 1) % 64 });
+              } else if(e.keyCode === 189) {
+                this.props.channels[x][this.state.y].effect = undefined;
+                this.setState({ y: (this.state.y + 1) % 64 });
+              }
+              break;
+            case 3:
+            case 4:
+              var val = keyNibble(e);
+              if(val !== undefined) {
+                this.props.channels[x][this.state.y][c === 3 ? 'effect1' : 'effect2'] = val;
+                this.setState({ y: (this.state.y + 1) % 64 });
+              }
+              break;
+          }
         }
         break;
       }
@@ -62,30 +148,40 @@ define(['react-0.12.0.js'], function(React) {
       if(this.state.x % COLS_PER_CHANNEL !== 0) {
         return;
       }
-      var c = this.state.x / COLS_PER_CHANNEL;
+      var c = Math.floor(this.state.x / COLS_PER_CHANNEL);
       this.props.player.handleRow(c, noteOn);
       var e = this.props.channels[this.state.x / COLS_PER_CHANNEL][this.state.y];
       e.note = noteOn.note;
-      e.inst = this.props.currentInstrument;
+      e.inst = noteOn.note === undefined ? undefined : this.props.currentInstrument;
       this.setState({ y: (this.state.y + 1) % 64 });
     },
     render: function() {
       var rows = [];
+      var rowSelected;
+      var row;
+      function pushCol(col, text) {
+        row.push(D.td({ className: rowSelected && selectedCol === col ? 'selected' : ''}, text));
+      }
+      function nibble(val) {
+        return String.fromCharCode(val < 10 ? 48 + val : 55 + val);
+      }
       for(var r = 0; r < this.props.channels[0].length; ++r) {
-        var row = [D.td(null, r + 1)];
+        row = [D.td(null, r + 1)];
+        rowSelected = r === this.state.y;
         for(var c = 0; c < this.props.channels.length; ++c) {
           var selectedCol = this.state.x - c * COLS_PER_CHANNEL;
           var e = this.props.channels[c][r];
           var note = e.note === undefined ? '---' : NOTES[(e.note - 3 + 12*3) % 12] + Math.floor((e.note - 3 + 12*3) / 12);
-          row.push(D.td({ className: r === this.state.y && selectedCol === 0 ? 'selected' : ''}, note));
-          var instChar = e.inst === undefined ? '-' : (e.inst < 10 ? '' + e.inst : String.fromCharCode(55 + e.inst));
-          row.push(D.td({ className: r === this.state.y && selectedCol === 1 ? 'selected' : ''}, instChar));
+          pushCol(0, note);
+          pushCol(1, e.inst === undefined ? '-' : nibble(e.inst));
+          pushCol(2, e.effect === undefined ? '-' : e.effect);
+          pushCol(3, nibble(e.effect1 | 0));
+          pushCol(4, nibble(e.effect2 | 0));
         }
-        var selected = r === this.state.y;
         rows.push(
           D.tr({
-            className: selected ? 'selected' : (r % 4 === 0) ? 'fourth' : '',
-            ref: selected ? 'selectedRow' : undefined
+            className: rowSelected ? 'selected' : (r % 4 === 0) ? 'fourth' : '',
+            ref: rowSelected ? 'selectedRow' : undefined
           }, row));
       }
       
