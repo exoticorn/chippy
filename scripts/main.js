@@ -100,6 +100,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
         lastKey: '',
         pattern: song.patterns[0],
         patternIdx: [0, 0, 0],
+        playlistIdx: 0,
         currentInstrument: 0,
         noteOffset: 3-12
       };
@@ -161,10 +162,12 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
             e.preventDefault();
             break;
           case 80:
-            if(this.state.playing === 'pattern') {
+            if(this.state.playing) {
               this.stop();
-            } else {
+            } else if(e.shiftKey) {
               this.playPattern();
+            } else {
+              this.playSong();
             }
             e.preventDefault();
             break;
@@ -204,7 +207,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
       this.setState({ playing: 'pattern' });
     },
     playSong: function() {
-      player.playSong(song);
+      player.playSong(this.state.playlistIdx);
       this.setState({ playing: 'song' });
     },
     updatePattern: function(row) {
@@ -218,7 +221,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
         }
         this.setState({
           patternIdx: pat.slice(),
-          pattern: pat.map(function(i, c) { return patterns[i][c]; })
+          pattern: pat.map(function(i, c) { return patterns[i][c]; }),
+          playlistIdx: row
         });
         if(this.state.playing === 'pattern') {
           this.stop();

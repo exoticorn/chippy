@@ -8,6 +8,7 @@ define(['instrument'], function(Instruments) {
     var song = {};
     var time = 0;
     var playing = false;
+    var playlistIndex;
     var patternPos = 0;
     
     var self = this;
@@ -28,6 +29,9 @@ define(['instrument'], function(Instruments) {
         }
         time += 15 / 120;
         patternPos = (patternPos + 1) % 64;
+        if(patternPos === 0 && playlistIndex !== undefined) {
+          nextPattern();
+        }
       }
     }
     
@@ -48,15 +52,33 @@ define(['instrument'], function(Instruments) {
       }
     };
     
+    function nextPattern() {
+      playlistIndex = playlistIndex % song.playlist.length;
+      var pat = song.playlist[playlistIndex++];
+      var patterns = song.patterns;
+      pattern = pat.map(function(i, c) { return patterns[i][c]; });
+      patternPos = 0;
+    }
+    
     this.setSong = function(s) {
       song = s;
-    }
+    };
     
     this.playPattern = function(p) {
       this.stop();
       pattern = p;
       time = ctx.currentTime + 0.1;
       patternPos = 0;
+      playing = true;
+      playlistIndex = undefined;
+      update();
+    };
+    
+    this.playSong = function(index) {
+      this.stop();
+      playlistIndex = index;
+      nextPattern();
+      time = ctx.currentTime + 0.1;
       playing = true;
       update();
     };
