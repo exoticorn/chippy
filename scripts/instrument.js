@@ -14,36 +14,56 @@ define(function() {
     }
     var triCurve = new Float32Array([0, -1, 0, 1, 0]);
     
+    var NOISE_LENGTH = 65536;
+    var noiseBuffer = ctx.createBuffer(1, NOISE_LENGTH, 44100);
+    var noiseData = noiseBuffer.getChannelData(0);
+    for(i = 0; i < NOISE_LENGTH; ++i) {
+      noiseData[i] = Math.random() * 2 - 1;
+    }
+    
     this.Instrument = function(data, time, note, vol) {
       this.data = data;
       this.time = time;
       this.frame = 0;
       this.note = note;
       this.vol = vol === undefined ? 15 : vol;
-      this.osci = ctx.createOscillator();
       var osciOut;
-      switch(data.osci) {
-        case 'rect':
-          this.osci.type = 'sawtooth';
-          this.dutyGain = ctx.createGain();
-          this.dutyGain.gain.value = 1;
-          osciOut = ctx.createWaveShaper();
-          osciOut.oversample = '4x';
-          osciOut.curve = rectCurve;
-          this.osci.connect(this.dutyGain);
-          this.dutyGain.connect(osciOut);
-          break;
-        default:
-          this.osci.type = data.osci;
-          osciOut = this.osci;
-          break;
+      if(data.osci !== undefined) {
+        this.osci = ctx.createOscillator();
+        switch(data.osci) {
+          case 'rect':
+            this.osci.type = 'sawtooth';
+            this.dutyGain = ctx.createGain();
+            this.dutyGain.gain.value = 1;
+            osciOut = ctx.createWaveShaper();
+            osciOut.oversample = '4x';
+            osciOut.curve = rectCurve;
+            this.osci.connect(this.dutyGain);
+            this.dutyGain.connect(osciOut);
+            break;
+          default:
+            this.osci.type = data.osci;
+            osciOut = this.osci;
+            break;
+        }
       }
       this.gain = ctx.createGain();
       this.gain.gain.value = 0;
+      if(data.noise !== undefined) {
+        this.noise = ctx.createBufferSource();
+        this.noise.buffer = noiseBuffer;
+        this.noise.loop = true;
+        this.noise.connect(this.gain);
+      }
       this.step();
-      osciOut.connect(this.gain);
       this.gain.connect(ctx.destination);
-      this.osci.start(time);
+      if(this.osci) {
+        osciOut.connect(this.gain);
+        this.osci.start(time);
+      }
+      if(this.noise !== undefined) {
+        this.noise.start(time);
+      }
     };
     this.Instrument.prototype = {
       step: function() {
@@ -51,7 +71,7 @@ define(function() {
         var lfo = 0;
         function evalProg(p, one) {
           if(typeof p !== 'object') {
-            return p || one;
+            return p === undefined ? one : p;
           }
           var list = one, env = one, osc = one;
           if(p.list) {
@@ -84,12 +104,18 @@ define(function() {
         if(this.data.lfo) {
           lfo = Math.sin(this.time * evalProg(this.data.lfo, 0) * 2 * Math.PI);
         }
-        var arpOffset = this.arpeggio !== undefined ? this.arpeggio[frame % this.arpeggio.length] : 0;
-        this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0) + arpOffset) * 100, this.time);
+        if(this.osci) {
+          var arpOffset = this.arpeggio !== undefined ? this.arpeggio[frame % this.arpeggio.length] : 0;
+          this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0) + arpOffset) * 100, this.time);
+        }
         this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15 * this.vol / 15 / 3, this.time);
         if(this.dutyGain) {
           var duty = evalProg(this.data.duty, 0);
           this.dutyGain.gain.setValueAtTime(1.0 / (duty + 0.001), this.time);
+        }
+        if(this.noise) {
+          var noiseFreq = Math.pow(0.75, 15 - evalProg(this.data.noise, 0));
+          this.noise.playbackRate.setValueAtTime(noiseFreq, this.time);
         }
         this.frame++;
         this.time += 1 / 60;
@@ -106,7 +132,12 @@ define(function() {
         this.arpeggio = [0, arp1, arp2];
       },
       stop: function(time) {
-        this.osci.stop(time);
+        if(this.osci !== undefined) {
+          this.osci.stop(time);
+        }
+        if(this.noise !== undefined) {
+          this.noise.stop(time);
+        }
       }
     };
   };

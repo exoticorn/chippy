@@ -60,7 +60,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
   
   function writeJson(entry, data) {
     entry.createWriter(function(writer) {
-      writer.write(new Blob([JSON.stringify(data)]));
+      writer.write(new Blob([JSON.stringify(data, null, 2)]));
       writer.truncate(writer.position);
     });
   }
