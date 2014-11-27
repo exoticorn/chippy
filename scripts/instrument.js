@@ -14,11 +14,12 @@ define(function() {
     }
     var triCurve = new Float32Array([0, -1, 0, 1, 0]);
     
-    this.Instrument = function(data, time, note) {
+    this.Instrument = function(data, time, note, vol) {
       this.data = data;
       this.time = time;
       this.frame = 0;
       this.note = note;
+      this.vol = vol === undefined ? 15 : vol;
       this.osci = ctx.createOscillator();
       var osciOut;
       switch(data.osci) {
@@ -83,8 +84,9 @@ define(function() {
         if(this.data.lfo) {
           lfo = Math.sin(this.time * evalProg(this.data.lfo, 0) * 2 * Math.PI);
         }
-        this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0)) * 100, this.time);
-        this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15 / 3, this.time);
+        var arpOffset = this.arpeggio !== undefined ? this.arpeggio[frame % this.arpeggio.length] : 0;
+        this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0) + arpOffset) * 100, this.time);
+        this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15 * this.vol / 15 / 3, this.time);
         if(this.dutyGain) {
           var duty = evalProg(this.data.duty, 0);
           this.dutyGain.gain.setValueAtTime(1.0 / (duty + 0.001), this.time);
@@ -96,6 +98,12 @@ define(function() {
         while(this.time < time) {
           this.step();
         }
+      },
+      setVol: function(vol) {
+        this.vol = vol;
+      },
+      setArpeggio: function(arp1, arp2) {
+        this.arpeggio = [0, arp1, arp2];
       },
       stop: function(time) {
         this.osci.stop(time);

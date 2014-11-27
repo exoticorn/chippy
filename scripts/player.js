@@ -10,6 +10,7 @@ define(['instrument'], function(Instruments) {
     var playing = false;
     var playlistIndex;
     var patternPos = 0;
+    var patternBreak;
     
     var self = this;
     
@@ -24,13 +25,16 @@ define(['instrument'], function(Instruments) {
         return;
       }
       while(time < ctx.currentTime + 0.4) {
+        patternBreak = undefined;
         for(c = 0; c < pattern.length; ++c) {
           self.handleRow(c, pattern[c][patternPos], time);
         }
         time += 15 / 120;
-        patternPos = (patternPos + 1) % 64;
-        if(patternPos === 0 && playlistIndex !== undefined) {
-          nextPattern();
+        if(++patternPos >= 64 || patternBreak !== undefined) {
+          patternPos = patternBreak|0;
+          if(playlistIndex !== undefined) {
+            nextPattern();
+          }
         }
       }
     }
@@ -48,7 +52,19 @@ define(['instrument'], function(Instruments) {
         if(channels[c] !== undefined) {
           channels[c].stop(time);
         }
-        channels[c] = new this.instruments.Instrument(song.insts[e.inst|0], time, e.note);
+        channels[c] = new this.instruments.Instrument(song.insts[e.inst|0], time, e.note, e.vol);
+      } else if(e.vol !== undefined && channels[c] !== undefined) {
+        channels[c].setVol(e.vol);
+      }
+      switch(e.effect) {
+        case 'A':
+          if(channels[c] !== undefined) {
+            channels[c].setArpeggio(e.effect1|0, e.effect2|0);
+          }
+          break;
+        case 'B':
+          patternBreak = (((e.effect1|0) << 16) | e.effect2) % 64;
+          break;
       }
     };
     

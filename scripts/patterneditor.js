@@ -2,7 +2,7 @@ define(['react-0.12.0.js'], function(React) {
   var D = React.DOM;
   
   var NUM_CHANNELS = 3;
-  var COLS_PER_CHANNEL = 5;
+  var COLS_PER_CHANNEL = 6;
   
   var NUM_COLS = NUM_CHANNELS * COLS_PER_CHANNEL;
   
@@ -12,6 +12,10 @@ define(['react-0.12.0.js'], function(React) {
     dst = dst || {};
     dst.note = src.note;
     dst.inst = src.inst;
+    dst.vol = src.vol;
+    dst.effect = src.effect;
+    dst.effect1 = src.effect1;
+    dst.effect2 = src.effect2;
     return dst;
   }
   
@@ -19,7 +23,7 @@ define(['react-0.12.0.js'], function(React) {
     if(e.keyCode >= 48 && e.keyCode < 58) {
       return e.keyCode - 48;
     }
-    if(e.keyCode >= 65 && e.keyCOde < 65 + 26) {
+    if(e.keyCode >= 65 && e.keyCode < 65 + 26) {
       return e.keyCode - 55;
     }
   }
@@ -123,6 +127,16 @@ define(['react-0.12.0.js'], function(React) {
               }
               break;
             case 2:
+              var vol = keyNibble(e);
+              if(vol !== undefined && vol < 16) {
+                this.props.channels[x][this.state.y].vol = vol;
+                this.setState({ y: (this.state.y + 1) % 64 });
+              } else if(e.keyCode === 189) {
+                this.props.channels[x][this.state.y].vol = undefined;
+                this.setState({ y: (this.state.y + 1) % 64 });
+              }
+              break;
+            case 3:
               if(e.keyCode >= 65 && e.keyCode < 65 + 26) {
                 this.props.channels[x][this.state.y].effect = String.fromCharCode(e.keyCode);
                 this.setState({ y: (this.state.y + 1) % 64 });
@@ -131,11 +145,11 @@ define(['react-0.12.0.js'], function(React) {
                 this.setState({ y: (this.state.y + 1) % 64 });
               }
               break;
-            case 3:
             case 4:
+            case 5:
               var val = keyNibble(e);
               if(val !== undefined) {
-                this.props.channels[x][this.state.y][c === 3 ? 'effect1' : 'effect2'] = val;
+                this.props.channels[x][this.state.y][c === 4 ? 'effect1' : 'effect2'] = val;
                 this.setState({ y: (this.state.y + 1) % 64 });
               }
               break;
@@ -149,10 +163,10 @@ define(['react-0.12.0.js'], function(React) {
         return;
       }
       var c = Math.floor(this.state.x / COLS_PER_CHANNEL);
-      this.props.player.handleRow(c, noteOn);
       var e = this.props.channels[this.state.x / COLS_PER_CHANNEL][this.state.y];
       e.note = noteOn.note;
       e.inst = noteOn.note === undefined ? undefined : this.props.currentInstrument;
+      this.props.player.handleRow(c, e);
       this.setState({ y: (this.state.y + 1) % 64 });
     },
     render: function() {
@@ -174,9 +188,10 @@ define(['react-0.12.0.js'], function(React) {
           var note = e.note === undefined ? '---' : NOTES[(e.note - 3 + 12*3) % 12] + Math.floor((e.note - 3 + 12*3) / 12);
           pushCol(0, note);
           pushCol(1, e.inst === undefined ? '-' : nibble(e.inst));
-          pushCol(2, e.effect === undefined ? '-' : e.effect);
-          pushCol(3, nibble(e.effect1 | 0));
-          pushCol(4, nibble(e.effect2 | 0));
+          pushCol(2, e.vol === undefined ? '-' : nibble(e.vol));
+          pushCol(3, e.effect === undefined ? '-' : e.effect);
+          pushCol(4, nibble(e.effect1 | 0));
+          pushCol(5, nibble(e.effect2 | 0));
         }
         rows.push(
           D.tr({
