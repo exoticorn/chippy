@@ -11,6 +11,7 @@ define(['instrument'], function(Instruments) {
     var playlistIndex;
     var patternPos = 0;
     var patternBreak;
+    var tempo = 120;
     
     var self = this;
     
@@ -29,7 +30,7 @@ define(['instrument'], function(Instruments) {
         for(c = 0; c < pattern.length; ++c) {
           self.handleRow(c, pattern[c][patternPos], time);
         }
-        time += 15 / 120;
+        time += 15 / tempo;
         if(++patternPos >= 64 || patternBreak !== undefined) {
           patternPos = patternBreak|0;
           if(playlistIndex !== undefined) {
@@ -49,11 +50,16 @@ define(['instrument'], function(Instruments) {
         channels[c].updateUntil(time);
       }
       if(e.note !== undefined) {
-        if(channels[c] !== undefined) {
-          channels[c].stop(time);
+        if(e.effect === 'L' && channels[c] !== undefined) {
+          channels[c].slideTo(e.note, ((e.effect1|0) << 4) | e.effect2);
+        } else {
+          if(channels[c] !== undefined) {
+            channels[c].stop(time);
+          }
+          channels[c] = new this.instruments.Instrument(song.insts[e.inst|0], time, e.note);
         }
-        channels[c] = new this.instruments.Instrument(song.insts[e.inst|0], time, e.note, e.vol);
-      } else if(e.vol !== undefined && channels[c] !== undefined) {
+      }
+      if(e.vol !== undefined && channels[c] !== undefined) {
         channels[c].setVol(e.vol);
       }
       switch(e.effect) {
@@ -63,8 +69,24 @@ define(['instrument'], function(Instruments) {
           }
           break;
         case 'B':
-          patternBreak = (((e.effect1|0) << 16) | e.effect2) % 64;
+          patternBreak = (((e.effect1|0) << 4) | e.effect2) % 64;
           break;
+        case 'S':
+        case 'H':
+          if(channels[c] !== undefined) {
+            channels[c].slideFrom(
+              (e.effect1|0) >= 8 ? (e.effect1|0)-16 : e.effect1|0,
+              e.effect2|0,
+              e.effect === 'H'
+            );
+          }
+          break;
+        case 'T':
+          tempo = ((e.effect1|0) << 4) | e.effect2;
+          break;
+      }
+      if(channels[c] !== undefined) {
+        channels[c].step();
       }
     };
     
@@ -87,6 +109,7 @@ define(['instrument'], function(Instruments) {
       patternPos = 0;
       playing = true;
       playlistIndex = undefined;
+      tempo = song.tempo;
       update();
     };
     
@@ -96,6 +119,7 @@ define(['instrument'], function(Instruments) {
       nextPattern();
       time = ctx.currentTime + 0.1;
       playing = true;
+      tempo = song.tempo;
       update();
     };
     

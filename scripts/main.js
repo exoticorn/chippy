@@ -60,8 +60,11 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
   
   function writeJson(entry, data) {
     entry.createWriter(function(writer) {
+      writer.onwriteend = function(e) {
+        writer.onwriteend = undefined;
+        writer.truncate(writer.position);
+      };
       writer.write(new Blob([JSON.stringify(data, null, 2)]));
-      writer.truncate(writer.position);
     });
   }
   
@@ -86,6 +89,7 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
     while(song.insts.length < 16) {
       song.insts.push({osci: 'sawtooth', vol: {env: [0, 15, 30, 0]}});
     }
+    song.tempo = song.tempo || 120;
   }
   prepareSong();
   
@@ -229,6 +233,10 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
         }
       }
     },
+    updateTempo: function(e) {
+      song.tempo = e.target.value|0;
+      this.forceUpdate();
+    },
     instChange: function(inst) {
       song.insts[this.state.currentInstrument] = inst;
     },
@@ -242,16 +250,24 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
           D.div(null, D.button({ type: 'button', onClick: this.playPattern }, 'Play Pattern')),
           D.div(null, D.button({ type: 'button', onClick: this.playSone }, 'Play Song')),
           D.div(null, this.state.lastKey ),
-          D.div(null, 'Oct: ' + ((this.state.noteOffset - 3) / 12 + 3))
+          D.div(null, 'Oct: ' + ((this.state.noteOffset - 3) / 12 + 3)),
+          D.div(null,
+            'Tempo: ',
+            D.input({ type: 'text', value: song.tempo, onChange: this.updateTempo })
+          )
         ),
-        PatternEditor({
-          channels: this.state.pattern,
-          keyToNote: this.keyToNote,
-          player: player,
-          currentInstrument: this.state.currentInstrument
-        }),
-        PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern }),
-        InstrumentEditor({ song: song, currentInstrument: this.state.currentInstrument, onChange: this.instChange })
+        D.div({ className: 'editor-box1' },
+          PatternEditor({
+            channels: this.state.pattern,
+            keyToNote: this.keyToNote,
+            player: player,
+            currentInstrument: this.state.currentInstrument
+          }),
+          D.div({ className: 'editor-box2' },
+            InstrumentEditor({ song: song, currentInstrument: this.state.currentInstrument, onChange: this.instChange }),
+            PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern })
+          )
+        )
       );
     }
   });

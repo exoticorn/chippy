@@ -11,9 +11,10 @@ define(['react-0.12.0.js'], function(React) {
       if(this.refs.selectedRow) {
         var e = this.refs.selectedRow.getDOMNode();
         var rect = e.getBoundingClientRect();
-        if(rect.top < 0) {
+        var wrapperRect = this.refs.wrapper.getDOMNode().getBoundingClientRect();
+        if(rect.top < wrapperRect.top) {
           e.scrollIntoView();
-        } else if(rect.bottom > window.innerHeight) {
+        } else if(rect.bottom > wrapperRect.bottom) {
           e.scrollIntoView(false);
         }
       }
@@ -83,8 +84,8 @@ define(['react-0.12.0.js'], function(React) {
     },
     render: function() {
       var self = this;
-      return D.div({className: 'edit-table-wrapper'},
-        D.table({ className: 'edit-table pattern', tabIndex: 1, onKeyDown: this.keyDown },
+      return D.div({className: 'edit-table-wrapper', ref: 'wrapper'},
+        D.table({ className: 'edit-table pattern', tabIndex: 3, onKeyDown: this.keyDown },
           D.tbody(null,
             this.props.playlist.map(function(row, index) {
               var selected = index === self.state.y;

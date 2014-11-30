@@ -21,12 +21,12 @@ define(function() {
       noiseData[i] = Math.random() * 2 - 1;
     }
     
-    this.Instrument = function(data, time, note, vol) {
+    this.Instrument = function(data, time, note) {
       this.data = data;
       this.time = time;
       this.frame = 0;
       this.note = note;
-      this.vol = vol === undefined ? 15 : vol;
+      this.vol = 15;
       var osciOut;
       if(data.osci !== undefined) {
         this.osci = ctx.createOscillator();
@@ -55,7 +55,6 @@ define(function() {
         this.noise.loop = true;
         this.noise.connect(this.gain);
       }
-      this.step();
       this.gain.connect(ctx.destination);
       if(this.osci) {
         osciOut.connect(this.gain);
@@ -106,7 +105,18 @@ define(function() {
         }
         if(this.osci) {
           var arpOffset = this.arpeggio !== undefined ? this.arpeggio[frame % this.arpeggio.length] : 0;
-          this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0) + arpOffset) * 100, this.time);
+          var slideOffset = 0;
+          if(this.slide) {
+            var t = this.frame - this.slide.startFrame;
+            if(t >= this.slide.frames) {
+              this.slide = undefined;
+            } else if (this.slide.hammer) {
+              slideOffset = this.slide.offset;
+            } else {
+              slideOffset = this.slide.offset * (1 - t / this.slide.frames);
+            }
+          }
+          this.osci.detune.setValueAtTime((this.note + evalProg(this.data.tune || this.data.arp, 0) + arpOffset + slideOffset) * 100, this.time);
         }
         this.gain.gain.setValueAtTime(evalProg(this.data.vol, 15) / 15 * this.vol / 15 / 3, this.time);
         if(this.dutyGain) {
@@ -130,6 +140,22 @@ define(function() {
       },
       setArpeggio: function(arp1, arp2) {
         this.arpeggio = [0, arp1, arp2];
+      },
+      slideTo: function(newNote, frames) {
+        this.slide = {
+          offset: this.note - newNote,
+          frames: frames,
+          startFrame: this.frame
+        };
+        this.note = newNote;
+      },
+      slideFrom: function(offset, frames, hammer) {
+        this.slide = {
+          offset: offset,
+          frames: frames,
+          startFrame: this.frame,
+          hammer: hammer
+        };
       },
       stop: function(time) {
         if(this.osci !== undefined) {
