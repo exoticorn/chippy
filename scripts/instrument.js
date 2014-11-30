@@ -124,7 +124,8 @@ define(function() {
           this.dutyGain.gain.setValueAtTime(1.0 / (duty + 0.001), this.time);
         }
         if(this.noise) {
-          var noiseFreq = Math.pow(0.75, 15 - evalProg(this.data.noise, 0));
+          var noiseFreq = Math.pow(0.75, 15 - evalProg(this.data.noise, 0)) *
+            Math.pow(2, (this.note - 3) / 12);
           this.noise.playbackRate.setValueAtTime(noiseFreq, this.time);
         }
         this.frame++;

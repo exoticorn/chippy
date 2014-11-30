@@ -231,6 +231,8 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
         if(this.state.playing === 'pattern') {
           this.stop();
         }
+      } else {
+        this.setState({ playlistIdx: row });
       }
     },
     updateTempo: function(e) {
