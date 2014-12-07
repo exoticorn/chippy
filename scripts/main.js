@@ -59,12 +59,14 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
   }
   
   function writeJson(entry, data) {
-    entry.createWriter(function(writer) {
-      writer.onwriteend = function(e) {
-        writer.onwriteend = undefined;
-        writer.truncate(writer.position);
-      };
-      writer.write(new Blob([JSON.stringify(data, null, 2)]));
+    return new Promise(function(resolve, reject) {
+      entry.createWriter(function(writer) {
+        writer.onwriteend = function(e) {
+          writer.onwriteend = resolve;
+          writer.truncate(writer.position);
+        };
+        writer.write(new Blob([JSON.stringify(data, null, 2)]));
+      });
     });
   }
   
@@ -112,6 +114,17 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
     componentDidMount: function() {
       document.body.onkeydown = this.keyDown;
     },
+    showMessage: function(msg) {
+      if(this.flashTimeout !== undefined) {
+        clearTimeout(this.flashTimeout);
+      }
+      this.flashTimeout = setTimeout(this.clearMessage, 3000);
+      this.setState({ flash: msg });
+    },
+    clearMessage: function() {
+      this.flashTimeout = undefined;
+      this.setState({ flash: undefined });
+    },
     load: async.proc(function*() {
       this.stop();
       var entry = yield selectFile('load');
@@ -124,18 +137,20 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
         this.setState({ entry: entry });
       }
     }),
-    save: function() {
+    save: async.proc(function*() {
       if(this.state.entry) {
-        writeJson(this.state.entry, song);
+        yield writeJson(this.state.entry, song);
+        this.showMessage('Song saved');
       } else {
         this.saveAs();
       }
-    },
+    }),
     saveAs: async.proc(function*() {
       var entry = yield selectFile('save');
       if(entry) {
-        writeJson(entry, song);
+        yield writeJson(entry, song);
         this.setState({ entry: entry });
+        this.showMessage('Song saved');
       }
     }),
     keyToNote: function(event) {
@@ -243,31 +258,35 @@ require(['react-0.12.0.js', 'player', 'patterneditor', 'playlisteditor', 'instru
       song.insts[this.state.currentInstrument] = inst;
     },
     render: function() {
-      return D.div({ className: 'main-box' },
-        D.div({className: 'file-ops'},
-          D.div(null, D.button({ type: 'button', onClick: this.load }, 'Load...')),
-          D.div(null, D.button({ type: 'button', onClick: this.save }, 'Save')),
-          D.div(null, D.button({ type: 'button', onClick: this.saveAs }, 'Save As...')),
-          D.div(null, D.button({ type: 'button', onClick: this.stop }, 'Stop')),
-          D.div(null, D.button({ type: 'button', onClick: this.playPattern }, 'Play Pattern')),
-          D.div(null, D.button({ type: 'button', onClick: this.playSone }, 'Play Song')),
-          D.div(null, this.state.lastKey ),
-          D.div(null, 'Oct: ' + ((this.state.noteOffset - 3) / 12 + 3)),
-          D.div(null,
-            'Tempo: ',
-            D.input({ type: 'text', value: song.tempo, onChange: this.updateTempo })
-          )
-        ),
-        D.div({ className: 'editor-box1' },
-          PatternEditor({
-            channels: this.state.pattern,
-            keyToNote: this.keyToNote,
-            player: player,
-            currentInstrument: this.state.currentInstrument
-          }),
-          D.div({ className: 'editor-box2' },
-            InstrumentEditor({ song: song, currentInstrument: this.state.currentInstrument, onChange: this.instChange }),
-            PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern })
+      return D.div({className: 'main'},
+        this.state.flash ? D.div({ className: 'flash' }, this.state.flash) : [],
+        D.div({ className: 'main-box' },
+          D.div({className: 'file-ops'},
+            D.div(null, D.button({ type: 'button', onClick: this.load }, 'Load...')),
+            D.div(null, D.button({ type: 'button', onClick: this.save }, 'Save')),
+            D.div(null, D.button({ type: 'button', onClick: this.saveAs }, 'Save As...')),
+            D.div(null, D.button({ type: 'button', onClick: this.stop }, 'Stop')),
+            D.div(null, D.button({ type: 'button', onClick: this.playPattern }, 'Play Pattern')),
+            D.div(null, D.button({ type: 'button', onClick: this.playSone }, 'Play Song')),
+            D.div(null, this.state.lastKey ),
+            D.div(null, 'Oct: ' + ((this.state.noteOffset - 3) / 12 + 3)),
+            D.div(null,
+              'Tempo: ',
+              D.input({ type: 'text', value: song.tempo, onChange: this.updateTempo })
+            )
+          ),
+          D.div({ className: 'editor-box1' },
+            PatternEditor({
+              channels: this.state.pattern,
+              keyToNote: this.keyToNote,
+              player: player,
+              currentInstrument: this.state.currentInstrument,
+              onMessage: this.showMessage
+            }),
+            D.div({ className: 'editor-box2' },
+              InstrumentEditor({ song: song, currentInstrument: this.state.currentInstrument, onChange: this.instChange }),
+              PlayListEditor({ playlist: song.playlist, updatePattern: this.updatePattern })
+            )
           )
         )
       );

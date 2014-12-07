@@ -76,7 +76,10 @@ define(['react-0.12.0.js'], function(React) {
         if(e.ctrlKey) {
           switch(e.keyCode) {
             case 77:
-              this.setState({ mark: {x: Math.floor(this.state.x / COLS_PER_CHANNEL), y: this.state.y} });
+              x = Math.floor(this.state.x / COLS_PER_CHANNEL);
+              y = this.state.y;
+              this.setState({ mark: {x: x, y: y} });
+              this.props.onMessage('Mark set at ' + x + ',' + y);
               e.preventDefault();
               break;
             case 67:
@@ -93,6 +96,7 @@ define(['react-0.12.0.js'], function(React) {
                   copyData.push(chan);
                 }
                 this.setState({ copyData: copyData, mark: undefined });
+                this.props.onMessage('Copied ' + x1 + ',' + y1 + ' - ' + x2 + ',' + y2);
               }
               e.preventDefault();
               break;
